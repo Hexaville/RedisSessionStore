@@ -23,7 +23,7 @@ public struct RedisSessionStore: SessionStoreProvider {
     
     let port: Int32
     
-    public init(host: String = "localhsot", port: Int32 = 6379) {
+    public init(host: String = "localhost", port: Int32 = 6379) {
         self.host = host
         self.port = port
     }
@@ -75,6 +75,7 @@ public struct RedisSessionStore: SessionStoreProvider {
     }
     
     public func write(value: [String : Any], forKey: String, ttl: Int?) throws {
+        let channel = Channel<Error?>.make(capacity: 1)
         connectIfNeeded { result in
             switch result {
             case .success(let redis):
@@ -88,18 +89,25 @@ public struct RedisSessionStore: SessionStoreProvider {
                     
                     redis.set(forKey, value: str, exists: nil, expiresIn: expiresIn) { bool, error in
                         if let error = error {
-                            reportError(command: "SETEX", error: error)
+                            return try! channel.send(error)
                         }
+                        try! channel.send(nil)
                     }
                 } catch {
-                    reportError(command: "SETEX", error: error)
+                    try! channel.send(error)
                 }
                 
             case .failure(let error):
-                reportConnectionError(error: error)
+                try! channel.send(error)
             }
         }
+        
+        let error = try channel.receive()
+        if let e = error {
+            throw e
+        }
     }
+    
     
     public func delete(forKey: String) throws {
         connectIfNeeded { result in
