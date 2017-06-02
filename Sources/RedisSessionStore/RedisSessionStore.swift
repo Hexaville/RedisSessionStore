@@ -11,6 +11,10 @@ func reportError(command: String, error: Error) {
     print("[RedisSessionStoreError] command: \(command), error: \(error)")
 }
 
+func reportConnectionError(error: Error) {
+    print("[RedisSessionStoreError] Could not connect redis server. reason: \(error)")
+}
+
 public struct RedisSessionStore: SessionStoreProvider {
     
     let redis = Redis()
@@ -92,7 +96,7 @@ public struct RedisSessionStore: SessionStoreProvider {
                 }
                 
             case .failure(let error):
-                reportError(command: "CON", error: error)
+                reportConnectionError(error: error)
             }
         }
     }
@@ -103,12 +107,12 @@ public struct RedisSessionStore: SessionStoreProvider {
             case .success(let redis):
                 redis.del(forKey) { int, error in
                     if let error = error {
-                        reportError(command: "SETEX", error: error)
+                        reportError(command: "DEL", error: error)
                     }
                 }
                 
             case .failure(let error):
-                reportError(command: "CON", error: error)
+                reportConnectionError(error: error)
             }
         }
     }
